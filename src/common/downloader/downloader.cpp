@@ -8,8 +8,6 @@
 #include <fstream>
 #include <thread>
 
-#include <core/common/cloudprotocol/alerts.hpp>
-
 #include <common/logger/logmodule.hpp>
 #include <common/utils/exception.hpp>
 
@@ -39,8 +37,8 @@ Downloader::~Downloader()
     mCondVar.notify_all();
 }
 
-Error Downloader::Download(const String& url, const String& path, cloudprotocol::DownloadTarget targetType,
-    const String& targetID, const String& version)
+Error Downloader::Download(
+    const String& url, const String& path, UpdateItemType targetType, const String& targetID, const String& version)
 {
     LOG_DBG() << "Start download" << Log::Field("url", url) << Log::Field("path", path)
               << Log::Field("targetType", targetType) << Log::Field("targetID", targetID)
@@ -203,34 +201,34 @@ int Downloader::OnProgress(
 
     LOG_DBG() << "Download progress" << Log::Field("complete", nowBytes) << Log::Field("total", dltotal);
 
-    SendAlert("Download status", std::to_string(nowBytes), std::to_string(dltotal));
+    SendAlert("Download status", nowBytes, dltotal);
 
     return 0;
 }
 
-void Downloader::PrepareDownloadAlert(cloudprotocol::DownloadAlert& alert, const std::string& msg,
-    const std::string& downloadedBytes, const std::string& totalBytes)
+void Downloader::PrepareDownloadAlert(
+    DownloadAlert& alert, const std::string& msg, size_t downloadedBytes, size_t totalBytes)
 {
-    alert.mTargetType      = mTargetType;
-    alert.mTargetID        = mTargetID.c_str();
+    alert.mItemID          = mTargetID.c_str();
+    alert.mItemType        = mTargetType;
     alert.mVersion         = mVersion.c_str();
     alert.mURL             = mURL.c_str();
     alert.mMessage         = msg.c_str();
-    alert.mDownloadedBytes = downloadedBytes.c_str();
-    alert.mTotalBytes      = totalBytes.c_str();
+    alert.mDownloadedBytes = downloadedBytes;
+    alert.mTotalBytes      = totalBytes;
 }
 
-void Downloader::SendAlert(const std::string& msg, const std::string& downloadedBytes, const std::string& totalBytes)
+void Downloader::SendAlert(const std::string& msg, size_t downloadedBytes, size_t totalBytes)
 {
     if (!mSender) {
         return;
     }
 
-    cloudprotocol::DownloadAlert alert;
-    cloudprotocol::AlertVariant  param;
+    DownloadAlert alert;
+    AlertVariant  param;
 
     PrepareDownloadAlert(alert, msg, downloadedBytes, totalBytes);
-    param.SetValue<cloudprotocol::DownloadAlert>(alert);
+    param.SetValue<DownloadAlert>(alert);
     mSender->SendAlert(param);
 }
 

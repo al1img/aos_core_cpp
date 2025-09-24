@@ -50,8 +50,8 @@ public:
      * @param version version.
      * @return Error.
      */
-    Error Download(const String& url, const String& path, cloudprotocol::DownloadTarget targetType,
-        const String& targetID = "", const String& version = "") override;
+    Error Download(const String& url, const String& path, UpdateItemType targetType, const String& targetID = "",
+        const String& version = "") override;
 
 private:
     constexpr static std::chrono::milliseconds cDelay {1000};
@@ -62,9 +62,9 @@ private:
     Error Download(const String& url, const String& path);
     Error CopyFile(const Poco::URI& uri, const String& outfilename);
     Error RetryDownload(const String& url, const String& path);
-    void  PrepareDownloadAlert(cloudprotocol::DownloadAlert& alert, const std::string& msg,
-         const std::string& downloadedBytes = "", const std::string& totalBytes = "");
-    void SendAlert(const std::string& msg, const std::string& downloadedBytes = "", const std::string& totalBytes = "");
+    void  PrepareDownloadAlert(
+         DownloadAlert& alert, const std::string& msg, size_t downloadedBytes = 0, size_t totalBytes = 0);
+    void SendAlert(const std::string& msg, size_t downloadedBytes = 0, size_t totalBytes = 0);
 
     static int XferInfoCallback(
         void* clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow);
@@ -79,7 +79,7 @@ private:
     curl_off_t                            mExistingOffset {0};
     std::string                           mTargetID;
     std::string                           mVersion;
-    cloudprotocol::DownloadTarget         mTargetType;
+    UpdateItemType                        mTargetType;
     std::string                           mURL;
 
     aos::alerts::SenderItf* mSender {nullptr};
