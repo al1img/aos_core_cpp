@@ -27,7 +27,7 @@ google::protobuf::RepeatedPtrField<::servicemanager::v4::InstanceMonitoring> Con
 
 class AlertVisitor : public aos::StaticVisitor<::servicemanager::v4::Alert> {
 public:
-    Res Visit(const aos::cloudprotocol::SystemAlert& val) const
+    Res Visit(const aos::SystemAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_system_alert();
@@ -37,7 +37,7 @@ public:
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::CoreAlert& val) const
+    Res Visit(const aos::CoreAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_core_alert();
@@ -48,19 +48,19 @@ public:
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::SystemQuotaAlert& val) const
+    Res Visit(const aos::SystemQuotaAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_system_quota_alert();
 
         pbAlert.set_parameter(val.mParameter.CStr());
         pbAlert.set_value(val.mValue);
-        pbAlert.set_status(val.mStatus.ToString().CStr());
+        pbAlert.set_status(val.mState.ToString().CStr());
 
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::InstanceQuotaAlert& val) const
+    Res Visit(const aos::InstanceQuotaAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_instance_quota_alert();
@@ -68,12 +68,12 @@ public:
         *pbAlert.mutable_instance() = aos::common::pbconvert::ConvertToProto(val.mInstanceIdent);
         pbAlert.set_parameter(val.mParameter.CStr());
         pbAlert.set_value(val.mValue);
-        pbAlert.set_status(val.mStatus.ToString().CStr());
+        pbAlert.set_status(val.mState.ToString().CStr());
 
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::DeviceAllocateAlert& val) const
+    Res Visit(const aos::DeviceAllocateAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_device_allocate_alert();
@@ -85,7 +85,7 @@ public:
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::ResourceValidateAlert& val) const
+    Res Visit(const aos::ResourceValidateAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_resource_validate_alert();
@@ -99,9 +99,9 @@ public:
         return result;
     }
 
-    Res Visit(const aos::cloudprotocol::DownloadAlert& val) const { return CreateAlert(val); }
+    Res Visit(const aos::DownloadAlert& val) const { return CreateAlert(val); }
 
-    Res Visit(const aos::cloudprotocol::ServiceInstanceAlert& val) const
+    Res Visit(const aos::InstanceAlert& val) const
     {
         Res   result  = CreateAlert(val);
         auto& pbAlert = *result.mutable_instance_alert();
@@ -114,11 +114,10 @@ public:
     }
 
 private:
-    Res CreateAlert(const aos::cloudprotocol::AlertItem& src) const
+    Res CreateAlert(const aos::AlertItem& src) const
     {
         Res pbAlert;
 
-        pbAlert.set_tag(src.mTag.ToString().CStr());
         *pbAlert.mutable_timestamp() = aos::common::pbconvert::TimestampToPB(src.mTimestamp);
 
         return pbAlert;
@@ -129,7 +128,7 @@ private:
 
 namespace aos::common::pbconvert {
 
-::servicemanager::v4::LogData ConvertToProto(const cloudprotocol::PushLog& src)
+::servicemanager::v4::LogData ConvertToProto(const PushLog& src)
 {
     ::servicemanager::v4::LogData result;
 
@@ -139,7 +138,7 @@ namespace aos::common::pbconvert {
     result.set_data(std::string(src.mContent.CStr(), src.mContent.Size()));
     result.set_status(src.mStatus.ToString().CStr());
 
-    SetErrorInfo(src.mErrorInfo, result);
+    SetErrorInfo(src.mError, result);
 
     return result;
 }
@@ -216,7 +215,7 @@ namespace aos::common::pbconvert {
     return result;
 }
 
-::servicemanager::v4::EnvVarStatus ConvertToProto(const cloudprotocol::EnvVarStatus& src)
+::servicemanager::v4::EnvVarStatus ConvertToProto(const EnvVarStatus& src)
 {
     ::servicemanager::v4::EnvVarStatus result;
 
@@ -227,7 +226,7 @@ namespace aos::common::pbconvert {
     return result;
 }
 
-::servicemanager::v4::Alert ConvertToProto(const cloudprotocol::AlertVariant& src)
+::servicemanager::v4::Alert ConvertToProto(const AlertVariant& src)
 {
     AlertVisitor visitor;
 
@@ -296,7 +295,7 @@ Error ConvertToAos(const ::servicemanager::v4::InstanceFilter& val, InstanceFilt
     return ErrorEnum::eNone;
 }
 
-Error ConvertToAos(const ::servicemanager::v4::EnvVarInfo& val, cloudprotocol::EnvVarInfo& dst)
+Error ConvertToAos(const ::servicemanager::v4::EnvVarInfo& val, EnvVarInfo& dst)
 {
     dst.mName  = String(val.name().c_str());
     dst.mValue = String(val.value().c_str());
@@ -305,19 +304,19 @@ Error ConvertToAos(const ::servicemanager::v4::EnvVarInfo& val, cloudprotocol::E
     return ErrorEnum::eNone;
 }
 
-Error ConvertToAos(const ::servicemanager::v4::OverrideEnvVars& src, cloudprotocol::EnvVarsInstanceInfoArray& dst)
+Error ConvertToAos(const ::servicemanager::v4::OverrideEnvVars& src, EnvVarsInstanceInfoArray& dst)
 {
     for (const auto& envVar : src.env_vars()) {
-        InstanceFilter instanceFilter;
+        InstanceFilter filter;
 
-        if (auto err = ConvertToAos(envVar.instance_filter(), instanceFilter); !err.IsNone()) {
+        if (auto err = ConvertToAos(envVar.instance_filter(), filter); !err.IsNone()) {
             return err;
         }
 
-        auto variables = std::make_unique<cloudprotocol::EnvVarInfoArray>();
+        auto variables = std::make_unique<EnvVarInfoArray>();
 
         for (const auto& var : envVar.variables()) {
-            cloudprotocol::EnvVarInfo envVarInfo;
+            EnvVarInfo envVarInfo;
 
             if (auto err = ConvertToAos(var, envVarInfo); !err.IsNone()) {
                 return err;
@@ -328,7 +327,7 @@ Error ConvertToAos(const ::servicemanager::v4::OverrideEnvVars& src, cloudprotoc
             }
         }
 
-        if (auto err = dst.EmplaceBack(instanceFilter, *variables); !err.IsNone()) {
+        if (auto err = dst.EmplaceBack(filter, *variables); !err.IsNone()) {
             return AOS_ERROR_WRAP(Error(err, "received env vars instances count exceeds application limit"));
         }
     }
@@ -361,7 +360,7 @@ Error ConvertToAos(const ::servicemanager::v4::LayerInfo& val, LayerInfo& dst)
     return ErrorEnum::eNone;
 }
 
-Error ConvertToAos(const ::servicemanager::v4::SystemLogRequest& val, cloudprotocol::RequestLog& dst)
+Error ConvertToAos(const ::servicemanager::v4::SystemLogRequest& val, RequestLog& dst)
 {
     dst.mLogID        = String(val.log_id().c_str());
     dst.mFilter.mFrom = ConvertToAos(val.from());
@@ -370,26 +369,26 @@ Error ConvertToAos(const ::servicemanager::v4::SystemLogRequest& val, cloudproto
     return ErrorEnum::eNone;
 }
 
-Error ConvertToAos(const ::servicemanager::v4::InstanceLogRequest& val, cloudprotocol::RequestLog& dst)
+Error ConvertToAos(const ::servicemanager::v4::InstanceLogRequest& val, RequestLog& dst)
 {
     dst.mLogID        = String(val.log_id().c_str());
     dst.mFilter.mFrom = ConvertToAos(val.from());
     dst.mFilter.mTill = ConvertToAos(val.till());
 
-    if (auto err = ConvertToAos(val.instance_filter(), dst.mFilter.mInstanceFilter); !err.IsNone()) {
+    if (auto err = ConvertToAos(val.instance_filter(), dst.mFilter); !err.IsNone()) {
         return err;
     }
 
     return ErrorEnum::eNone;
 }
 
-Error ConvertToAos(const ::servicemanager::v4::InstanceCrashLogRequest& val, cloudprotocol::RequestLog& dst)
+Error ConvertToAos(const ::servicemanager::v4::InstanceCrashLogRequest& val, RequestLog& dst)
 {
     dst.mLogID        = String(val.log_id().c_str());
     dst.mFilter.mFrom = ConvertToAos(val.from());
     dst.mFilter.mTill = ConvertToAos(val.till());
 
-    if (auto err = ConvertToAos(val.instance_filter(), dst.mFilter.mInstanceFilter); !err.IsNone()) {
+    if (auto err = ConvertToAos(val.instance_filter(), dst.mFilter); !err.IsNone()) {
         return err;
     }
 

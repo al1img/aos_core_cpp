@@ -229,9 +229,8 @@ servicemanager::v4::SMOutgoingMessages CreateAlert()
     timestamp.set_nanos(1);
     alertMsg.mutable_timestamp()->CopyFrom(timestamp);
 
-    alertMsg.set_tag("tag");
-
     servicemanager::v4::SystemQuotaAlert systemQuotaAlert;
+
     systemQuotaAlert.set_parameter("parameter");
     systemQuotaAlert.set_value(1);
     systemQuotaAlert.set_status("status");
@@ -488,12 +487,15 @@ TEST_F(CMClientTest, SendOutgoingMsg)
     mSMService->WaitForResponse();
 
     EXPECT_TRUE(mSMService->GetOutgoingMsg().has_alert());
+
     auto alertMsg = mSMService->GetOutgoingMsg().alert();
+
     EXPECT_EQ(alertMsg.timestamp().seconds(), 1);
     EXPECT_EQ(alertMsg.timestamp().nanos(), 1);
-    EXPECT_EQ(alertMsg.tag(), "tag");
     EXPECT_TRUE(alertMsg.has_system_quota_alert());
+
     auto systemQuotaAlert = alertMsg.system_quota_alert();
+
     EXPECT_EQ(systemQuotaAlert.parameter(), "parameter");
     EXPECT_EQ(systemQuotaAlert.value(), 1);
     EXPECT_EQ(systemQuotaAlert.status(), "status");
@@ -509,7 +511,9 @@ TEST_F(CMClientTest, SendOutgoingMsg)
     mSMService->WaitForResponse();
 
     EXPECT_TRUE(mSMService->GetOutgoingMsg().has_image_content_request());
+
     auto imageContentRequestMsg = mSMService->GetOutgoingMsg().image_content_request();
+
     EXPECT_EQ(imageContentRequestMsg.url(), "url");
     EXPECT_EQ(imageContentRequestMsg.request_id(), 1);
     EXPECT_EQ(imageContentRequestMsg.content_type(), "content_type");
