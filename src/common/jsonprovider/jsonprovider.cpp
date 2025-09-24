@@ -6,7 +6,6 @@
 
 #include <Poco/JSON/Parser.h>
 
-#include <common/cloudprotocol/desiredstatus.hpp>
 #include <common/utils/exception.hpp>
 #include <common/utils/json.hpp>
 #include <common/utils/time.hpp>
@@ -346,7 +345,7 @@ Poco::JSON::Object::Ptr AlertRulesToJSON(const AlertRules& rules)
     return object;
 }
 
-Poco::JSON::Object::Ptr ResourceRatiosToJSON(const aos::cloudprotocol::ResourceRatios& ratios)
+Poco::JSON::Object::Ptr ResourceRatiosToJSON(const aos::ResourceRatios& ratios)
 {
     auto object = Poco::makeShared<Poco::JSON::Object>(Poco::JSON_PRESERVE_KEY_ORDER);
 
@@ -369,9 +368,9 @@ Poco::JSON::Object::Ptr ResourceRatiosToJSON(const aos::cloudprotocol::ResourceR
     return object;
 }
 
-aos::cloudprotocol::ResourceRatios ResourceRatiosFromJSON(const utils::CaseInsensitiveObjectWrapper& object)
+aos::ResourceRatios ResourceRatiosFromJSON(const utils::CaseInsensitiveObjectWrapper& object)
 {
-    aos::cloudprotocol::ResourceRatios ratios = {};
+    aos::ResourceRatios ratios = {};
 
     if (object.Has("cpu")) {
         ratios.mCPU.SetValue(object.GetValue<double>("cpu"));
