@@ -403,7 +403,7 @@ Error FromJSON(const utils::CaseInsensitiveObjectWrapper& json, aos::cloudprotoc
 
         utils::ForEach(json, "items", [&alerts](const auto& item) {
             auto err = alerts.mItems.EmplaceBack();
-            AOS_ERROR_CHECK_AND_THROW(err, "failed to emplace alert into AlertVariantStaticArray");
+            AOS_ERROR_CHECK_AND_THROW(err, "failed to emplace alert into array");
 
             auto wrapper = utils::CaseInsensitiveObjectWrapper(item);
 

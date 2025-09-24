@@ -359,7 +359,7 @@ bool SMClient::RegisterSM(const std::string& url)
             continue;
         }
 
-        auto lastRunStatus = std::make_unique<InstanceStatusStaticArray>();
+        auto lastRunStatus = std::make_unique<InstanceStatusArray>();
 
         if (auto err = mLauncher->GetCurrentRunStatus(*lastRunStatus); !err.IsNone()) {
             LOG_ERR() << "Can't get current run status: err=" << err;
@@ -499,7 +499,7 @@ bool SMClient::ProcessRunInstances(const smproto::RunInstances& request)
 {
     LOG_INF() << "Process run instances";
 
-    auto aosServices = std::make_unique<ServiceInfoStaticArray>();
+    auto aosServices = std::make_unique<ServiceInfoArray>();
 
     for (const auto& service : request.services()) {
         auto serviceInfo = std::make_unique<ServiceInfo>();
@@ -515,7 +515,7 @@ bool SMClient::ProcessRunInstances(const smproto::RunInstances& request)
         }
     }
 
-    auto aosLayers = std::make_unique<LayerInfoStaticArray>();
+    auto aosLayers = std::make_unique<LayerInfoArray>();
 
     for (const auto& layer : request.layers()) {
         auto layerInfo = std::make_unique<LayerInfo>();
@@ -532,7 +532,7 @@ bool SMClient::ProcessRunInstances(const smproto::RunInstances& request)
         }
     }
 
-    auto aosInstances = std::make_unique<InstanceInfoStaticArray>();
+    auto aosInstances = std::make_unique<InstanceInfoArray>();
 
     for (const auto& instance : request.instances()) {
         auto instanceInfo = std::make_unique<InstanceInfo>();
