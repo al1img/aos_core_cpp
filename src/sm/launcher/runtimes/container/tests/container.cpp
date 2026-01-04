@@ -68,7 +68,7 @@ protected:
 
     void SetUp() override
     {
-        RuntimeConfig config = {"runc", nullptr};
+        RuntimeConfig config = {"container", "runc", false, "", nullptr};
 
         EXPECT_CALL(mCurrentNodeInfoProviderMock, GetCurrentNodeInfo(_))
             .WillRepeatedly(DoAll(SetArgReferee<0>(CreateNodeInfo()), Return(ErrorEnum::eNone)));

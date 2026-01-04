@@ -83,9 +83,9 @@ TEST_F(RuntimesTest, InitRuntimes)
     Runtimes runtimes;
     Config   config;
 
-    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeContainer, "crun", false, {}});
-    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeBoot, "aos-vm-boot", true, {}});
-    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeRootfs, "aos-vm-rootfs", true, {}});
+    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeContainer, "crun", false, "", {}});
+    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeBoot, "aos-vm-boot", true, "", {}});
+    config.mRuntimes.emplace_back(RuntimeConfig {cRuntimeRootfs, "aos-vm-rootfs", true, "", {}});
 
     auto nodeInfo = std::make_unique<NodeInfo>();
 
