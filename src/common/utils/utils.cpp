@@ -6,6 +6,8 @@
 
 #include <sstream>
 
+#include "Poco/UUID.h"
+#include "Poco/UUIDGenerator.h"
 #include <Poco/Pipe.h>
 #include <Poco/PipeStream.h>
 #include <Poco/Process.h>
@@ -15,6 +17,10 @@
 #include "utils.hpp"
 
 namespace aos::common::utils {
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
 
 RetWithError<std::string> ExecCommand(const std::vector<std::string>& args)
 {
@@ -51,6 +57,13 @@ RetWithError<std::string> ExecCommand(const std::vector<std::string>& args)
     }
 
     return {output.str(), ErrorEnum::eNone};
+}
+
+std::string NameUUID(const std::string& name)
+{
+    auto& generator = Poco::UUIDGenerator::defaultGenerator();
+
+    return generator.createFromName(Poco::UUID::oid(), name).toString();
 }
 
 } // namespace aos::common::utils
