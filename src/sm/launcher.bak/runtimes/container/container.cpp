@@ -1,0 +1,222 @@
+/*
+ * Copyright (C) 2025 EPAM Systems, Inc.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include <core/common/tools/logger.hpp>
+
+#include <common/utils/exception.hpp>
+
+#include "container.hpp"
+#include "filesystem.hpp"
+#include "runner.hpp"
+
+namespace aos::sm::launcher {
+
+/***********************************************************************************************************************
+ * Public
+ **********************************************************************************************************************/
+
+Error ContainerRuntime::Init(const RuntimeConfig& config,
+    iamclient::CurrentNodeInfoProviderItf& currentNodeInfoProvider, imagemanager::ItemInfoProviderItf& itemInfoProvider,
+    networkmanager::NetworkManagerItf& networkManager, iamclient::PermHandlerItf& permHandler, oci::OCISpecItf& ociSpec)
+{
+    try {
+        LOG_DBG() << "Init runtime" << Log::Field("type", config.mType.c_str());
+
+        ParseContainerConfig(common::utils::CaseInsensitiveObjectWrapper(
+                                 config.mConfig ? config.mConfig : Poco::makeShared<Poco::JSON::Object>()),
+            mConfig);
+
+        if (auto err = currentNodeInfoProvider.GetCurrentNodeInfo(mNodeInfo); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        if (auto err = CreateRuntimeInfo(config.mType, mNodeInfo); !err.IsNone()) {
+            return err;
+        }
+
+        mRunner     = CreateRunner();
+        mFileSystem = CreateFileSystem();
+
+        mItemInfoProvider = &itemInfoProvider;
+        mNetworkManager   = &networkManager;
+        mPermHandler      = &permHandler;
+        mOCISpec          = &ociSpec;
+
+        if (auto err = mRunner->Init(*this); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        return ErrorEnum::eNone;
+    } catch (const std::exception& e) {
+        return AOS_ERROR_WRAP(common::utils::ToAosError(e));
+    }
+}
+
+Error ContainerRuntime::Start()
+{
+    LOG_DBG() << "Start runtime";
+
+    if (auto err = mRunner->Start(); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    return ErrorEnum::eNone;
+}
+
+Error ContainerRuntime::Stop()
+{
+    LOG_DBG() << "Stop runtime";
+
+    Error err;
+
+    if (auto stopErr = mRunner->Stop(); !stopErr.IsNone()) {
+        err = AOS_ERROR_WRAP(stopErr);
+    }
+
+    return err;
+}
+
+Error ContainerRuntime::GetRuntimeInfo(RuntimeInfo& runtimeInfo) const
+{
+    LOG_DBG() << "Get runtime info";
+
+    runtimeInfo = mRuntimeInfo;
+
+    return ErrorEnum::eNone;
+}
+
+Error ContainerRuntime::StartInstance(const InstanceInfo& instanceInfo, InstanceStatus& status)
+{
+    try {
+        std::shared_ptr<Instance> instance;
+
+        {
+            std::lock_guard lock {mMutex};
+
+            LOG_DBG() << "Start instance" << Log::Field("instance", static_cast<const InstanceIdent&>(instanceInfo));
+
+            if (auto it = mCurrentInstances.find(static_cast<const InstanceIdent&>(instanceInfo));
+                it != mCurrentInstances.end()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eAlreadyExist, "instance already running"));
+            }
+
+            instance = std::make_shared<Instance>(instanceInfo, mConfig, mNodeInfo, *mFileSystem, *mItemInfoProvider,
+                *mNetworkManager, *mPermHandler, *mOCISpec);
+
+            mCurrentInstances.insert({static_cast<const InstanceIdent&>(instanceInfo), instance});
+        }
+
+        if (auto err = instance->Start(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        instance->GetStatus(status);
+
+        return ErrorEnum::eNone;
+    } catch (const std::exception& e) {
+        return AOS_ERROR_WRAP(common::utils::ToAosError(e));
+    }
+}
+
+Error ContainerRuntime::StopInstance(const InstanceIdent& instanceIdent, InstanceStatus& status)
+{
+    try {
+        std::shared_ptr<Instance> instance;
+
+        {
+            std::lock_guard lock {mMutex};
+
+            LOG_DBG() << "Stop instance" << Log::Field("instance", instanceIdent);
+
+            auto it = mCurrentInstances.find(static_cast<const InstanceIdent&>(instanceIdent));
+            if (it == mCurrentInstances.end()) {
+                return AOS_ERROR_WRAP(Error(ErrorEnum::eNotFound, "instance not running"));
+            }
+
+            instance = it->second;
+            mCurrentInstances.erase(it);
+        }
+
+        if (auto err = instance->Stop(); !err.IsNone()) {
+            return AOS_ERROR_WRAP(err);
+        }
+
+        instance->GetStatus(status);
+
+        return ErrorEnum::eNone;
+    } catch (const std::exception& e) {
+        return AOS_ERROR_WRAP(common::utils::ToAosError(e));
+    }
+}
+
+Error ContainerRuntime::Reboot()
+{
+    LOG_DBG() << "Reboot runtime";
+
+    return ErrorEnum::eNotSupported;
+}
+
+Error ContainerRuntime::GetInstanceMonitoringData(
+    const InstanceIdent& instanceIdent, monitoring::InstanceMonitoringData& monitoringData)
+{
+    (void)monitoringData;
+
+    LOG_DBG() << "Get instance monitoring data" << Log::Field("instance", instanceIdent);
+
+    return ErrorEnum::eNone;
+}
+
+/***********************************************************************************************************************
+ * Private
+ **********************************************************************************************************************/
+
+std::shared_ptr<RunnerItf> ContainerRuntime::CreateRunner()
+{
+    return std::make_shared<Runner>();
+}
+
+std::shared_ptr<FileSystemItf> ContainerRuntime::CreateFileSystem()
+{
+    return std::make_shared<FileSystem>();
+}
+
+Error ContainerRuntime::CreateRuntimeInfo(const std::string& runtimeType, const NodeInfo& nodeInfo)
+{
+    auto runtimeID = runtimeType + "-" + nodeInfo.mNodeID.CStr();
+
+    if (auto err = mRuntimeInfo.mRuntimeID.Assign(runtimeID.c_str()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    if (auto err = mRuntimeInfo.mRuntimeType.Assign(runtimeType.c_str()); !err.IsNone()) {
+        return AOS_ERROR_WRAP(err);
+    }
+
+    mRuntimeInfo.mOSInfo = nodeInfo.mOSInfo;
+
+    if (nodeInfo.mCPUs.IsEmpty()) {
+        return AOS_ERROR_WRAP(Error(ErrorEnum::eInvalidArgument, "can't define runtime arch info"));
+    }
+
+    mRuntimeInfo.mArchInfo     = nodeInfo.mCPUs[0].mArchInfo;
+    mRuntimeInfo.mMaxInstances = cMaxNumInstances;
+
+    LOG_INF() << "Runtime info" << Log::Field("runtimeID", mRuntimeInfo.mRuntimeID)
+              << Log::Field("runtimeType", mRuntimeInfo.mRuntimeType)
+              << Log::Field("architecture", mRuntimeInfo.mArchInfo.mArchitecture)
+              << Log::Field("os", mRuntimeInfo.mOSInfo.mOS) << Log::Field("maxInstances", mRuntimeInfo.mMaxInstances);
+
+    return ErrorEnum::eNone;
+}
+
+Error ContainerRuntime::UpdateRunStatus(const std::vector<RunStatus>& instances)
+{
+    (void)instances;
+
+    return ErrorEnum::eNone;
+}
+
+}; // namespace aos::sm::launcher
